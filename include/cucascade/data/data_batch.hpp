@@ -24,6 +24,7 @@
 
 #include <cudf/table/table.hpp>
 
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -266,6 +267,15 @@ class data_batch : public std::enable_shared_from_this<data_batch> {
   cucascade::memory::memory_space* get_memory_space() const;
 
   /**
+   * @brief Get the time this batch was last consumed (locked for processing).
+   *
+   * Returns std::nullopt if this batch has never been consumed.
+   *
+   * @return std::optional<std::chrono::steady_clock::time_point> Last consumed time, or nullopt
+   */
+  std::optional<std::chrono::steady_clock::time_point> get_last_consumed_time() const;
+
+  /**
    * @brief Set a condition variable to be notified on state changes.
    *
    * The CV is notified outside of the batch mutex.
@@ -474,6 +484,8 @@ class data_batch : public std::enable_shared_from_this<data_batch> {
   size_t _task_created_count                = 0;  ///< Count of pending task_created requests
   batch_state _state                        = batch_state::idle;  ///< Current state of the batch
   std::condition_variable* _state_change_cv = nullptr;  ///< Optional CV to notify on state change
+  std::optional<std::chrono::steady_clock::time_point>
+    _last_consumed_time{};  ///< Time of last successful lock_for_processing; nullopt if never used
 };
 
 // Template implementation

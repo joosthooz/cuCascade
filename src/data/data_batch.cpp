@@ -93,6 +93,12 @@ cucascade::memory::memory_space* data_batch::get_memory_space() const
   return &_data->get_memory_space();
 }
 
+std::optional<std::chrono::steady_clock::time_point> data_batch::get_last_consumed_time() const
+{
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _last_consumed_time;
+}
+
 void data_batch::set_state_change_cv(std::condition_variable* cv)
 {
   std::lock_guard<std::mutex> lock(_mutex);
@@ -244,10 +250,11 @@ lock_for_processing_result data_batch::try_to_lock_for_processing(
     }
     --_task_created_count;
     ++_processing_count;
-    _state        = batch_state::processing;
-    should_notify = true;
-    cv_to_notify  = _state_change_cv;
-    result        = {
+    _state              = batch_state::processing;
+    _last_consumed_time = std::chrono::steady_clock::now();
+    should_notify       = true;
+    cv_to_notify        = _state_change_cv;
+    result              = {
       true, data_batch_processing_handle{shared_from_this()}, lock_for_processing_status::success};
   }
   if (should_notify) { _internal_cv.notify_all(); }
@@ -292,9 +299,10 @@ lock_for_processing_result data_batch::wait_to_lock_for_processing(
 
     --_task_created_count;
     ++_processing_count;
-    _state       = batch_state::processing;
-    cv_to_notify = _state_change_cv;
-    result       = {
+    _state              = batch_state::processing;
+    _last_consumed_time = std::chrono::steady_clock::now();
+    cv_to_notify        = _state_change_cv;
+    result              = {
       true, data_batch_processing_handle{shared_from_this()}, lock_for_processing_status::success};
   }
   _internal_cv.notify_all();
