@@ -110,16 +110,14 @@ void data_batch::set_data(std::unique_ptr<idata_representation> data)
 
 bool data_batch::try_to_create_task()
 {
-  std::condition_variable* cv_to_notify = nullptr;
-  bool should_notify                    = false;
-  bool success                          = false;
+  bool should_notify = false;
+  bool success       = false;
   {
     std::lock_guard<std::mutex> lock(_mutex);
     if (_state == batch_state::idle) {
       _state = batch_state::task_created;
       ++_task_created_count;
       should_notify = true;
-      cv_to_notify  = _state_change_cv;
       success       = true;
     } else if (_state == batch_state::task_created) {
       ++_task_created_count;
@@ -133,7 +131,6 @@ bool data_batch::try_to_create_task()
     }
   }
   if (should_notify) { _internal_cv.notify_all(); }
-  if (should_notify && cv_to_notify) { cv_to_notify->notify_all(); }
   return success;
 }
 
