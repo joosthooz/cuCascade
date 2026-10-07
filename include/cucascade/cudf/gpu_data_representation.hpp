@@ -154,6 +154,21 @@ class gpu_table_representation : public idata_representation {
   std::unique_ptr<cudf::table> release_table(::cuda::stream_ref stream);
 
   /**
+   * @brief Release ownership only when this representation owns the table outright.
+   *
+   * Unlike @ref release_table, this never materializes the owning_table_view
+   * alternative: it returns nullptr instead. Callers that release in order to
+   * free memory (the spill encoder frees each column as it encodes it) must use
+   * this — release_table would deep-copy a whole batch onto the device at the
+   * exact moment the caller is trying to free one, which is how an eviction
+   * under pressure turns into an OOM.
+   *
+   * @param stream Stream the returned table's buffers are rebound to, as in @ref release_table.
+   * @return The cuDF table, or nullptr when the data is externally owned.
+   */
+  std::unique_ptr<cudf::table> try_release_table(::cuda::stream_ref stream);
+
+  /**
    * @brief Rebind the owned table's device buffers to use @p stream for future deallocation.
    *
    * Applies cudf::rebind_stream to every column (recursively rebinding data buffers, null

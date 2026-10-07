@@ -114,6 +114,16 @@ std::unique_ptr<cudf::table> gpu_table_representation::release_table(::cuda::str
   return std::move(std::get<std::unique_ptr<cudf::table>>(_table));
 }
 
+std::unique_ptr<cudf::table> gpu_table_representation::try_release_table(
+  ::cuda::stream_ref stream)
+{
+  if (!std::holds_alternative<std::unique_ptr<cudf::table>>(_table)) { return nullptr; }
+  // Same rebind as release_table: the returned table's frees stay stream-ordered behind the
+  // caller's reads.
+  gpu_table_representation::rebind_stream(stream);
+  return std::move(std::get<std::unique_ptr<cudf::table>>(_table));
+}
+
 void gpu_table_representation::rebind_stream(::cuda::stream_ref stream)
 {
   // Only the owned-table alternative can be rebound: the owning_table_view alternative
